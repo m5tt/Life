@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import os
 import argparse
 from tkinter import *
 from random import randint
@@ -9,50 +10,53 @@ from random import randint
 live = 1
 dead = 0
 
+cell_dist = 10
+cell_width = 10
+
+cellwidth_min = 2
+cellwidth_max = 10
+scale_factor = 1
+
 colors = ["midnightblue", "deepskyblue", "green", "seagreen", "yellow", "orangered", "red", "magenta", "violet"]
 
 
 arg_parser = argparse.ArgumentParser(description="Conway's Game Of Life")
-arg_parser.add_argument('--patternfile', required=True, type=str)
+arg_parser.add_argument('--patternfile', '-p', required=True, type=str)
 arg_parser.add_argument('--speedstep', required=False, default=50, type=int)
 arg_parser.add_argument('--scrollincr', required=False, default=15, type=int)
-arg_parser.add_argument('--win_x', required=False, default=1000, type=int)
-arg_parser.add_argument('--win_y', required=False, default=1000, type=int)
-arg_parser.add_argument('--initspeed', required=False, default=500, type=int)
-arg_parser.add_argument('--cell_dif', required=False, default=12, type=int)
-arg_parser.add_argument('--cell_size', required=False, default=7, type=int)
-arg_parser.add_argument('--color', required=False, default="red", type=str)
+arg_parser.add_argument('--win_x', '-wx', required=False, default=1000, type=int)
+arg_parser.add_argument('--win_y', '-wy', required=False, default=1000, type=int)
+arg_parser.add_argument('--initspeed', '-s', required=False, default=500, type=int)
+arg_parser.add_argument('--color', '-c', required=False, default="red", type=str)
 arg_parser.add_argument('--multicolor', required=False, default=False, type=bool)
-
 
 
 args = arg_parser.parse_args()
 patternfile = args.patternfile
-
 speedstep = args.speedstep
 scrollincr = args.scrollincr
-
 win_x = args.win_x
 win_y = args.win_y
 speed = args.initspeed
-
-cell_dif = args.cell_dif
-point_dif = args.cell_size
 color = args.color
+multicolor = args.multicolor
+
 
 scrollregion_x = 999999
 scrollregion_y = 999999
 
-multicolor = args.multicolor
-
 ## Midpoints for scroll region and window, used to center things - no need to add x1, y1 since there 0 
-mpscroll_x, mpscroll_y = scrollregion_x / 2, scrollregion_y / 2
-mpwin_x, mpwin_y = win_x / 2, win_y / 2
+mpscroll_x, mpscroll_y = int(scrollregion_x / 2), int(scrollregion_y / 2)
+mpwin_x, mpwin_y = int(win_x / 2), int(win_y / 2)
 
+cell_offset = mpscroll_x
+
+
+## Main data structure, keeps track of live cells, set() to keep things unique
+live_cells = set()
 
 
 def get_neighbors(x, y):
-
     for hor in [-1, 0, 1]:
 
         for ver in [-1, 0, 1]:
@@ -62,28 +66,26 @@ def get_neighbors(x, y):
 
 
 
-def calc_gen(old_livecells, cand_cells):
-
+def calc_gen(cand_cells):
     new_livecells = set()
 
     for x, y in cand_cells:
         liveneighbor_count = 0
 
         for neighbor_x, neighbor_y in get_neighbors(x, y):
-            if (neighbor_x, neighbor_y) in old_livecells: ## If neighbor is live
+            if (neighbor_x, neighbor_y) in live_cells: ## If neighbor is live
                 liveneighbor_count += 1
 
 
-        if ((x, y) in old_livecells) and (1 < liveneighbor_count < 4):
+        if ((x, y) in live_cells) and (1 < liveneighbor_count < 4):
             new_livecells.add((x, y))
-        elif (not ((x, y) in old_livecells)) and (liveneighbor_count == 3):
+        elif (not ((x, y) in live_cells)) and (liveneighbor_count == 3):
             new_livecells.add((x, y))
 
     return new_livecells
 
 
-def get_candcells(live_cells):
-
+def get_candcells():
     ## Candidate cells (candidate to be live/dead) - all live cells plus there neighbors
 
     cand_cells = set()
@@ -97,52 +99,66 @@ def get_candcells(live_cells):
 
 
 
-def draw_cells(canvas, live_cells):
-
+def draw_cells(canvas):
     global color
     canvas.delete("all")
 
     for x, y in live_cells:
-        x = (x * cell_dif)
-        y = (y * cell_dif)
-
+        draw_x = ((x - cell_offset) * cell_dist) + cell_offset
+        draw_y = ((y - cell_offset) * cell_dist) + cell_offset
+       
         if multicolor: 
             color = colors[randint(0, len(colors) - 1)]
         
-        canvas.create_rectangle(x, y, x + point_dif, y + point_dif, fill=color)
+        canvas.create_rectangle(draw_x, draw_y, draw_x + cell_width, draw_y + cell_width, fill=color) 
+
+
+def is_int(char):
+
+    try:
+        int(char)
+        return True
+    except:
+        return False
+
+## Parse files in rle format
+def parse_rle(pattern_fh):
+    return 0;
+    ## TODO
     
+## Parse pattern files in .cells format
+def parse_cells(pattern_fh): 
+    for y, pattern_line in enumerate(pattern_fh):
+        pattern_line = pattern_line.rstrip('\n')
+
+        ## Comments and blank lines
+        if not pattern_line or pattern_line[0] == '!':
+            continue
+        
+        for x, cell in enumerate(pattern_line):
+            if cell == 'O':    
+                yield (x, y)
 
 
-def init_game():
-
-    live_cells = set()
-    
+def init_game(): 
     with open(patternfile, 'r') as pattern_fh:
- 
-        for line_num, pattern_line in enumerate(pattern_fh):
-            pattern_line = pattern_line.rstrip('\n')
+        
+        parse_func = None
+        file_extension = os.path.splitext(patternfile)[1]
 
-            ## Comments and blank lines
-            if not pattern_line or pattern_line[0] == '!':
-                continue
-            
-            for cell_num, cell in enumerate(pattern_line):
+        if file_extension == '.cells':
+            parse_func = parse_cells
+        elif file_extension == '.rle':
+            parse_func = parse_rle
+        else:
+            print("Error invalid file format")
+            exit(1)
 
-                if cell == 'O':
-
-                    ## Put pattern somewhere in middle of board
-                    x = int(cell_num + (mpscroll_x / cell_dif) - 20)
-                    y = int(line_num + (mpscroll_y / cell_dif) - 10)
-
-                    live_cells.add((x, y))
+        for x, y in parse_func(pattern_fh):
+            live_cells.add((x + cell_offset, y + cell_offset)) ## Put in middle
 
 
-    return live_cells
-
-
-
-
-
+## Callbacks
 
 def quit_callback(event):
     exit(1)
@@ -171,8 +187,25 @@ def scrollleft_callback(event):
     event.widget.xview_scroll(-1, UNITS)
 
 
+def zoom_in(event):
+    global cell_dist
+    global cell_width
+
+    if (cell_width + scale_factor) <= cellwidth_max:
+        cell_width += scale_factor
+        cell_dist = cell_width
+        
+def zoom_out(event):
+    global cell_dist
+    global cell_width
+
+    if (cell_width - scale_factor) >= cellwidth_min:
+        cell_width -= scale_factor 
+        cell_dist = cell_width
 
 
+
+#### GUI setup
 
 master = Tk()
 canvas = Canvas(master, width=win_x, height=win_y, scrollregion=(0, 0, scrollregion_x, scrollregion_y))
@@ -196,20 +229,20 @@ canvas.bind('<Down>', scrolldown_callback)
 canvas.bind('<Left>', scrollleft_callback)
 canvas.bind('<Right>', scrollright_callback)
 
+canvas.bind('i', zoom_in)
+canvas.bind('o', zoom_out)
+
 canvas.focus_set()
 canvas.pack()
 
 
+init_game()
 
-live_cells = init_game()
-
-
-## Needs to go here so we can have canvas and live_cells in scope
 def update():
     global live_cells
 
-    draw_cells(canvas, live_cells)
-    live_cells = calc_gen(live_cells, get_candcells(live_cells))
+    draw_cells(canvas)
+    live_cells = calc_gen(get_candcells())
 
     master.after(speed, update)
 
