@@ -58,9 +58,7 @@ live_cells = set()
 
 def get_neighbors(x, y):
     for hor in [-1, 0, 1]:
-
         for ver in [-1, 0, 1]:
-
             if not hor == ver == 0 and ((0 <= (x + hor) < scrollregion_x) and (0 <= (y + ver) < scrollregion_y)):
                 yield (x + hor, y + ver)
 
@@ -75,7 +73,6 @@ def calc_gen(cand_cells):
         for neighbor_x, neighbor_y in get_neighbors(x, y):
             if (neighbor_x, neighbor_y) in live_cells: ## If neighbor is live
                 liveneighbor_count += 1
-
 
         if ((x, y) in live_cells) and (1 < liveneighbor_count < 4):
             new_livecells.add((x, y))
@@ -114,18 +111,18 @@ def draw_cells(canvas):
 
 
 def is_int(char):
-
     try:
         int(char)
         return True
     except:
         return False
 
+## TODO
 ## Parse files in rle format
 def parse_rle(pattern_fh):
     return 0;
-    ## TODO
-    
+
+
 ## Parse pattern files in .cells format
 def parse_cells(pattern_fh): 
     for y, pattern_line in enumerate(pattern_fh):
@@ -238,6 +235,7 @@ canvas.pack()
 
 init_game()
 
+## Should change this to timer
 def update():
     global live_cells
 
