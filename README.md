@@ -4,7 +4,7 @@ A console based Conways Game of Life implementation written in Python and runs i
 # Features
 * Will take and run any valid .cells or .rle file
 * Very configurable, can speed up or slow down, zoom in or out, pan around to see different parts of large pattern
-* Based of a standard console interface where you can pass it various options
+* Uses a standard console interface
 
 # Examples
 
